@@ -11,18 +11,23 @@ import com.bonkers.maintenance_system.dto.MaintenanceRequestResponseDTO;
 import com.bonkers.maintenance_system.dto.UpdateMaintenanceRequestDTO;
 import com.bonkers.maintenance_system.model.Facility;
 import com.bonkers.maintenance_system.model.MaintenanceRequest;
+import com.bonkers.maintenance_system.model.User;
 import com.bonkers.maintenance_system.repository.FacilityRepository;
 import com.bonkers.maintenance_system.repository.MaintenanceRequestRepository;
+import com.bonkers.maintenance_system.repository.UserRepository;
 
 @Service
 public class MaintenanceRequestService {
     private final FacilityRepository facilityRepository;
     private final MaintenanceRequestRepository maintenanceRequestRepository;
+    private final UserRepository userRepository;
 
     public MaintenanceRequestService(FacilityRepository facilityRepository,
-            MaintenanceRequestRepository maintenanceRequestRepository) {
+            MaintenanceRequestRepository maintenanceRequestRepository,
+            UserRepository userRepository) {
         this.facilityRepository = facilityRepository;
         this.maintenanceRequestRepository = maintenanceRequestRepository;
+        this.userRepository = userRepository;
     }
 
     private MaintenanceRequestResponseDTO toDto(MaintenanceRequest entity) {
@@ -36,6 +41,7 @@ public class MaintenanceRequestService {
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setDueAt(entity.getDueAt());
         dto.setFacilityName(entity.getFacility().getName());
+        dto.setTenantName(entity.getTenant().getName());
 
         return dto;
     }
@@ -44,12 +50,16 @@ public class MaintenanceRequestService {
         Facility facility = facilityRepository.findById(request.getFacilityId())
                 .orElseThrow(() -> new RuntimeException("Facility not found"));
 
+        User tenant = userRepository.findById(1L) // replace 1L with your real placeholder user's id
+                .orElseThrow(() -> new RuntimeException("Tenant not found"));
+
         MaintenanceRequest maintenanceRequest = new MaintenanceRequest();
         maintenanceRequest.setTitle(request.getTitle());
         maintenanceRequest.setDescription(request.getDescription());
         maintenanceRequest.setPriority(request.getPriority());
         maintenanceRequest.setFacility(facility);
         maintenanceRequest.setCreatedAt(LocalDateTime.now());
+        maintenanceRequest.setTenant(tenant);
 
         MaintenanceRequest saved = maintenanceRequestRepository.save(maintenanceRequest);
 
@@ -58,7 +68,7 @@ public class MaintenanceRequestService {
 
     public MaintenanceRequestResponseDTO updateMaintenanceRequest(Long id, UpdateMaintenanceRequestDTO request) {
         MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
 
         maintenanceRequest.setTitle(request.getTitle());
         maintenanceRequest.setDescription(request.getDescription());
@@ -77,7 +87,7 @@ public class MaintenanceRequestService {
 
     public void deleteMaintenanceRequest(Long id) {
         MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
 
         maintenanceRequestRepository.delete(maintenanceRequest);
     }
