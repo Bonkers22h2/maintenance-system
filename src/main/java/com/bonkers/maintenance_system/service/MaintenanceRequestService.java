@@ -110,8 +110,27 @@ public class MaintenanceRequestService {
     }
 
     public List<MaintenanceRequestResponseDTO> getAllMaintenanceRequests() {
-        List<MaintenanceRequest> all = maintenanceRequestRepository.findAll();
-        return all.stream()
+        String principalName = SecurityContextHolder.getContext().getAuthentication() != null
+                ? SecurityContextHolder.getContext().getAuthentication().getName()
+                : null;
+
+        if (principalName == null || principalName.isBlank()) {
+            throw new RuntimeException("No authenticated tenant found");
+        }
+
+        User user = userRepository.findByEmail(principalName)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<MaintenanceRequest> results;
+
+        switch (user.getRole()) {
+            case TENANT -> results = maintenanceRequestRepository.findByTenant(user);
+            case STAFF -> results = maintenanceRequestRepository.findByAssignedStaff(user);
+            case ADMIN -> results = maintenanceRequestRepository.findAll();
+            default -> throw new IllegalStateException("Unknown role: " + user.getRole());
+        }
+
+        return results.stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
