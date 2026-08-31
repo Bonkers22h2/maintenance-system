@@ -19,6 +19,7 @@ public class JwtService {
     @Value("${jwt.expiration}")
     private long expiration;
 
+    // Normalize role string by removing ROLE_ prefix
     public static String normalizeRole(String role) {
         if (role == null) {
             return null;
@@ -32,6 +33,7 @@ public class JwtService {
         return normalizedRole;
     }
 
+    // Generate JWT token for authenticated user
     public String generateToken(String username, String role) {
         SecretKey key = Keys.hmacShaKeyFor(secret.getBytes());
         String normalizedRole = normalizeRole(role);
@@ -45,6 +47,7 @@ public class JwtService {
                 .compact();
     }
 
+    // Extract role claim from JWT token
     public String extractRole(String token) {
         SecretKey key = Keys.hmacShaKeyFor(secret.getBytes());
         String role = Jwts.parser()
@@ -56,6 +59,7 @@ public class JwtService {
         return normalizeRole(role);
     }
 
+    // Extract username (subject) from JWT token
     public String extractUsername(String token) {
         SecretKey key = Keys.hmacShaKeyFor(secret.getBytes());
         return Jwts.parser()
@@ -66,6 +70,7 @@ public class JwtService {
                 .getSubject();
     }
 
+    // Validate JWT token signature and expiration
     public boolean isTokenValid(String token) {
         try {
             SecretKey key = Keys.hmacShaKeyFor(secret.getBytes());

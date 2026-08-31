@@ -26,34 +26,40 @@ import jakarta.validation.Valid;
 public class FacilityController {
     private final FacilityService facilityService;
 
+    // Constructor to initialize FacilityService
     public FacilityController(FacilityService facilityService) {
         this.facilityService = facilityService;
     }
 
+    // Retrieve all facilities
     @GetMapping
     public ResponseEntity<List<FacilityResponseDTO>> getAllFacility() {
         List<FacilityResponseDTO> facilities = facilityService.getAllFacility();
         return ResponseEntity.ok(facilities);
     }
 
+    // Retrieve a specific facility by ID
     @GetMapping("/{id}")
     public ResponseEntity<FacilityResponseDTO> getFacility(@PathVariable Long id) {
         FacilityResponseDTO facility = facilityService.getFacility(id);
         return ResponseEntity.ok(facility);
     }
 
+    // Update an existing facility
     @PutMapping("/{id}")
     public ResponseEntity<FacilityResponseDTO> updateFacility(@PathVariable Long id, @Valid @RequestBody UpdateFacilityDTO request){
         FacilityResponseDTO facility = facilityService.updateFacility(id, request);
         return ResponseEntity.ok(facility);
     }
 
+    // Delete a facility
     @DeleteMapping("/{id}")
     public ResponseEntity<FacilityResponseDTO> deleteFacility(@PathVariable Long id){
         facilityService.deleteFacility(id);
         return ResponseEntity.noContent().build();
     }
 
+    // Create a new facility
     @PostMapping
     public ResponseEntity<FacilityResponseDTO> createFacility(@Valid @RequestBody CreateFacilityDTO request) {
         FacilityResponseDTO facility = facilityService.createFacility(request);

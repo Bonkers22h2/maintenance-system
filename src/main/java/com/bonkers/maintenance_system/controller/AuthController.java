@@ -24,16 +24,19 @@ public class AuthController {
     private final AuthService authService;
     private final JwtService jwtService;
 
+    // Constructor to initialize AuthService and JwtService
     public AuthController(AuthService authService, JwtService jwtService) {
         this.authService = authService;
         this.jwtService = jwtService;
     }
 
+    // Register a new user
     @PostMapping("/register")
     public ResponseEntity<User> register(@Valid @RequestBody RegisterDTO reqDto) {
         return ResponseEntity.ok(authService.register(reqDto));
     }
 
+    // Authenticate user and generate JWT token
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(@Valid @RequestBody LoginDTO reqDto) {
         User user = authService.login(reqDto);

@@ -15,10 +15,12 @@ import com.bonkers.maintenance_system.repository.FacilityRepository;
 public class FacilityService {
     private final FacilityRepository facilityRepository;
 
+    // Constructor to initialize FacilityRepository
     public FacilityService(FacilityRepository facilityRepository){
         this.facilityRepository = facilityRepository;
     }
 
+    // Convert Facility entity to DTO
     private FacilityResponseDTO toDto(Facility entity) {
         FacilityResponseDTO dto = new FacilityResponseDTO();
 
@@ -30,6 +32,7 @@ public class FacilityService {
         return dto;
     }
 
+    // Create a new facility
     public FacilityResponseDTO createFacility(CreateFacilityDTO request){
         Facility facility = new Facility();
         facility.setName(request.getName());
@@ -41,6 +44,7 @@ public class FacilityService {
         return toDto(saved);
     }
 
+    // Retrieve a specific facility by ID
     public FacilityResponseDTO getFacility(Long id) {
         Facility facility = facilityRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Facility not found"));
@@ -48,6 +52,7 @@ public class FacilityService {
         return toDto(facility);
     }
 
+    // Retrieve all facilities
     public List<FacilityResponseDTO> getAllFacility() {
         List<Facility> all = facilityRepository.findAll();
         return all.stream()
@@ -55,6 +60,7 @@ public class FacilityService {
             .collect(Collectors.toList());
     }
 
+    // Update an existing facility
     public FacilityResponseDTO updateFacility(Long id, UpdateFacilityDTO request){
         Facility facility = facilityRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Facility not found"));
@@ -67,6 +73,7 @@ public class FacilityService {
         return toDto(saved);
     }
 
+    // Delete a facility
     public void deleteFacility(Long id) {
         Facility facility = facilityRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Facility not found"));

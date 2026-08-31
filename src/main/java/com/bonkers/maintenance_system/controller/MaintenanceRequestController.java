@@ -30,22 +30,26 @@ import jakarta.validation.Valid;
 public class MaintenanceRequestController {
     private final MaintenanceRequestService maintenanceRequestService;
 
+    // Constructor to initialize MaintenanceRequestService
     public MaintenanceRequestController(MaintenanceRequestService maintenanceRequestService) {
         this.maintenanceRequestService = maintenanceRequestService;
     }
 
+    // Retrieve all maintenance requests
     @GetMapping
     public ResponseEntity<List<MaintenanceRequestResponseDTO>> getAllMaintenanceRequests() {
         List<MaintenanceRequestResponseDTO> maintenanceRequests = maintenanceRequestService.getAllMaintenanceRequests();
         return ResponseEntity.ok(maintenanceRequests);
     }
 
+    // Retrieve a specific maintenance request by ID
     @GetMapping("/{id}")
     public ResponseEntity<MaintenanceRequestResponseDTO> getMaintenanceRequest(@PathVariable Long id) {
         MaintenanceRequestResponseDTO maintenanceRequest = maintenanceRequestService.getMaintenanceRequest(id);
         return ResponseEntity.ok(maintenanceRequest);
     }
 
+    // Update an existing maintenance request (Tenant and Admin only)
     @PreAuthorize("hasAnyRole('TENANT', 'ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<MaintenanceRequestResponseDTO> updateMaintenanceRequest(@PathVariable Long id,
@@ -55,6 +59,7 @@ public class MaintenanceRequestController {
         return ResponseEntity.ok(maintenanceRequest);
     }
 
+    // Delete a maintenance request (Admin only)
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteMaintenanceRequest(@PathVariable Long id) {
@@ -62,6 +67,7 @@ public class MaintenanceRequestController {
         return ResponseEntity.noContent().build();
     }
 
+    // Create a new maintenance request (Tenant and Admin only)
     @PreAuthorize("hasAnyRole('TENANT', 'ADMIN')")
     @PostMapping
     public ResponseEntity<MaintenanceRequestResponseDTO> createMaintenance(
@@ -70,6 +76,7 @@ public class MaintenanceRequestController {
         return ResponseEntity.status(HttpStatus.CREATED).body(maintenanceRequest);
     }
 
+    // Update the status of a maintenance request (Staff and Admin only)
     @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
     @PatchMapping("/{id}/status")
     public ResponseEntity<MaintenanceRequestResponseDTO> updateStatus(@PathVariable Long id,
@@ -78,6 +85,7 @@ public class MaintenanceRequestController {
         return ResponseEntity.ok(maintenanceRequest);
     }
 
+    // Assign staff to a maintenance request (Admin only)
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/assign")
     public ResponseEntity<MaintenanceRequestResponseDTO> assignStaff(@PathVariable Long id,
@@ -86,6 +94,7 @@ public class MaintenanceRequestController {
         return ResponseEntity.ok(maintenanceRequest);
     }
 
+    // Retrieve status history for a maintenance request
     @PreAuthorize("hasAnyRole('TENANT', 'STAFF', 'ADMIN')")
     @GetMapping("/{id}/history")
     public ResponseEntity<List<StatusHistoryResponseDTO>> getStatusHistory(@PathVariable Long id) {

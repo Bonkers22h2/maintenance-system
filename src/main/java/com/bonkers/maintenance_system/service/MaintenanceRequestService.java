@@ -31,6 +31,7 @@ public class MaintenanceRequestService {
     private final MaintenanceRequestRepository maintenanceRequestRepository;
     private final UserRepository userRepository;
 
+    // Constructor to initialize repositories
     public MaintenanceRequestService(FacilityRepository facilityRepository,
             MaintenanceRequestRepository maintenanceRequestRepository,
             UserRepository userRepository,
@@ -41,6 +42,7 @@ public class MaintenanceRequestService {
         this.statusHistoryRepository = statusHistoryRepository;
     }
 
+    // Log status change history for a maintenance request
     private StatusHistory logStatusHistory(Status oldStatus, Status newStatus, MaintenanceRequest maintenanceRequest,
             User user) {
         StatusHistory statusHistory = new StatusHistory();
@@ -53,6 +55,8 @@ public class MaintenanceRequestService {
         return statusHistoryRepository.save(statusHistory);
     }
 
+
+    // Convert MaintenanceRequest entity to DTO
     private MaintenanceRequestResponseDTO toDto(MaintenanceRequest entity) {
         MaintenanceRequestResponseDTO dto = new MaintenanceRequestResponseDTO();
 
@@ -72,6 +76,7 @@ public class MaintenanceRequestService {
         return dto;
     }
 
+    // Convert StatusHistory entity to DTO
     private StatusHistoryResponseDTO toDto(StatusHistory entity) {
         StatusHistoryResponseDTO dto = new StatusHistoryResponseDTO();
 
@@ -85,6 +90,7 @@ public class MaintenanceRequestService {
         return dto;
     }
 
+    // Create a new maintenance request
     public MaintenanceRequestResponseDTO createMaintenanceRequest(CreateMaintenanceRequestDTO request) {
         Facility facility = facilityRepository.findById(request.getFacilityId())
                 .orElseThrow(() -> new RuntimeException("Facility not found"));
@@ -114,6 +120,7 @@ public class MaintenanceRequestService {
         return toDto(saved);
     }
 
+    // Update an existing maintenance request
     public MaintenanceRequestResponseDTO updateMaintenanceRequest(Long id, UpdateMaintenanceRequestDTO request) {
         MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
@@ -126,6 +133,7 @@ public class MaintenanceRequestService {
         return toDto(saved);
     }
 
+    // Retrieve a specific maintenance request by ID
     public MaintenanceRequestResponseDTO getMaintenanceRequest(Long id) {
         MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
@@ -133,6 +141,7 @@ public class MaintenanceRequestService {
         return toDto(maintenanceRequest);
     }
 
+    // Delete a maintenance request
     public void deleteMaintenanceRequest(Long id) {
         MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
@@ -140,6 +149,7 @@ public class MaintenanceRequestService {
         maintenanceRequestRepository.delete(maintenanceRequest);
     }
 
+    // Retrieve all maintenance requests filtered by user role
     public List<MaintenanceRequestResponseDTO> getAllMaintenanceRequests() {
         String principalName = SecurityContextHolder.getContext().getAuthentication() != null
                 ? SecurityContextHolder.getContext().getAuthentication().getName()
@@ -166,6 +176,7 @@ public class MaintenanceRequestService {
                 .collect(Collectors.toList());
     }
 
+    // Retrieve status history for a maintenance request
     public List<StatusHistoryResponseDTO> getStatusHistory(Long maintenanceRequestId) {
         MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
             .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
@@ -177,6 +188,7 @@ public class MaintenanceRequestService {
             .collect(Collectors.toList());
     }
 
+    // Validate if status transition is allowed
     private void validateStatusTransition(Status current, Status next) {
         boolean valid = switch (current) {
             case SUBMITTED -> next == Status.ASSIGNED;
@@ -191,6 +203,7 @@ public class MaintenanceRequestService {
         }
     }
 
+    // Update the status of a maintenance request
     public MaintenanceRequestResponseDTO updateStatus(Long id, UpdateStatusDTO request) {
         MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
@@ -219,6 +232,7 @@ public class MaintenanceRequestService {
         return toDto(savedRequest);
     }
 
+    // Assign staff member to a maintenance request
     public MaintenanceRequestResponseDTO assignStaff(Long id, AssignStaffDTO request) {
         MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
