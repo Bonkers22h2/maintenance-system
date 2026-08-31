@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.bonkers.maintenance_system.dto.CreateMaintenanceRequestDTO;
 import com.bonkers.maintenance_system.dto.MaintenanceRequestResponseDTO;
 import com.bonkers.maintenance_system.dto.UpdateMaintenanceRequestDTO;
+import com.bonkers.maintenance_system.dto.UpdateStatusDTO;
 import com.bonkers.maintenance_system.service.MaintenanceRequestService;
 
 import jakarta.validation.Valid;
@@ -60,5 +62,12 @@ public class MaintenanceRequestController {
             @Valid @RequestBody CreateMaintenanceRequestDTO request) {
         MaintenanceRequestResponseDTO maintenanceRequest = maintenanceRequestService.createMaintenanceRequest(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(maintenanceRequest);
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<MaintenanceRequestResponseDTO> updateStatus(@PathVariable Long id,
+            @Valid @RequestBody UpdateStatusDTO request) {
+        MaintenanceRequestResponseDTO maintenanceRequest = maintenanceRequestService.updateStatus(id, request);
+        return ResponseEntity.ok(maintenanceRequest);
     }
 }

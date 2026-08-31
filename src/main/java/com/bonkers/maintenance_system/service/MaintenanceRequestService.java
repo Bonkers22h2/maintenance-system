@@ -2,6 +2,8 @@ package com.bonkers.maintenance_system.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -9,8 +11,10 @@ import org.springframework.stereotype.Service;
 import com.bonkers.maintenance_system.dto.CreateMaintenanceRequestDTO;
 import com.bonkers.maintenance_system.dto.MaintenanceRequestResponseDTO;
 import com.bonkers.maintenance_system.dto.UpdateMaintenanceRequestDTO;
+import com.bonkers.maintenance_system.dto.UpdateStatusDTO;
 import com.bonkers.maintenance_system.model.Facility;
 import com.bonkers.maintenance_system.model.MaintenanceRequest;
+import com.bonkers.maintenance_system.model.Status;
 import com.bonkers.maintenance_system.model.User;
 import com.bonkers.maintenance_system.repository.FacilityRepository;
 import com.bonkers.maintenance_system.repository.MaintenanceRequestRepository;
@@ -98,4 +102,35 @@ public class MaintenanceRequestService {
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
+
+    private void validateStatusTransition(Status current, Status next) {
+        boolean valid = switch (current) {
+            case SUBMITTED -> next == Status.ASSIGNED;
+            case ASSIGNED -> next == Status.IN_PROGRESS;
+            case IN_PROGRESS -> next == Status.RESOLVED;
+            case RESOLVED -> false;
+        };
+
+        if (!valid) {
+            throw new IllegalStateException(
+                    "Invalid status transition: " + current + " -> " + next);
+        }
+    }
+
+    public MaintenanceRequestResponseDTO updateStatus(Long id, UpdateStatusDTO request) {
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+
+        Status currentStatus = maintenanceRequest.getStatus();
+        Status nextStatus = request.getStatus();
+
+        validateStatusTransition(currentStatus, nextStatus);
+
+        maintenanceRequest.setStatus(nextStatus);
+
+        MaintenanceRequest savedRequest = maintenanceRequestRepository.save(maintenanceRequest);
+
+        return toDto(savedRequest);
+    }
+
 }
