@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bonkers.maintenance_system.dto.AssignStaffDTO;
 import com.bonkers.maintenance_system.dto.CreateMaintenanceRequestDTO;
 import com.bonkers.maintenance_system.dto.MaintenanceRequestResponseDTO;
 import com.bonkers.maintenance_system.dto.UpdateMaintenanceRequestDTO;
@@ -43,6 +45,7 @@ public class MaintenanceRequestController {
         return ResponseEntity.ok(maintenanceRequest);
     }
 
+    @PreAuthorize("hasAnyRole('TENANT', 'ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<MaintenanceRequestResponseDTO> updateMaintenanceRequest(@PathVariable Long id,
             @Valid @RequestBody UpdateMaintenanceRequestDTO request) {
@@ -51,12 +54,14 @@ public class MaintenanceRequestController {
         return ResponseEntity.ok(maintenanceRequest);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteMaintenanceRequest(@PathVariable Long id) {
         maintenanceRequestService.deleteMaintenanceRequest(id);
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasAnyRole('TENANT', 'ADMIN')")
     @PostMapping
     public ResponseEntity<MaintenanceRequestResponseDTO> createMaintenance(
             @Valid @RequestBody CreateMaintenanceRequestDTO request) {
@@ -64,10 +69,19 @@ public class MaintenanceRequestController {
         return ResponseEntity.status(HttpStatus.CREATED).body(maintenanceRequest);
     }
 
+    @PreAuthorize("hasRole('STAFF')")
     @PatchMapping("/{id}/status")
     public ResponseEntity<MaintenanceRequestResponseDTO> updateStatus(@PathVariable Long id,
             @Valid @RequestBody UpdateStatusDTO request) {
         MaintenanceRequestResponseDTO maintenanceRequest = maintenanceRequestService.updateStatus(id, request);
+        return ResponseEntity.ok(maintenanceRequest);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/{id}/assign")
+    public ResponseEntity<MaintenanceRequestResponseDTO> assignStaff(@PathVariable Long id,
+            @Valid @RequestBody AssignStaffDTO request) {
+        MaintenanceRequestResponseDTO maintenanceRequest = maintenanceRequestService.assignStaff(id, request);
         return ResponseEntity.ok(maintenanceRequest);
     }
 }

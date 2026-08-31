@@ -2,18 +2,19 @@ package com.bonkers.maintenance_system.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import com.bonkers.maintenance_system.dto.AssignStaffDTO;
 import com.bonkers.maintenance_system.dto.CreateMaintenanceRequestDTO;
 import com.bonkers.maintenance_system.dto.MaintenanceRequestResponseDTO;
 import com.bonkers.maintenance_system.dto.UpdateMaintenanceRequestDTO;
 import com.bonkers.maintenance_system.dto.UpdateStatusDTO;
 import com.bonkers.maintenance_system.model.Facility;
 import com.bonkers.maintenance_system.model.MaintenanceRequest;
+import com.bonkers.maintenance_system.model.Role;
 import com.bonkers.maintenance_system.model.Status;
 import com.bonkers.maintenance_system.model.User;
 import com.bonkers.maintenance_system.repository.FacilityRepository;
@@ -46,6 +47,9 @@ public class MaintenanceRequestService {
         dto.setDueAt(entity.getDueAt());
         dto.setFacilityName(entity.getFacility().getName());
         dto.setTenantName(entity.getTenant().getName());
+        if (entity.getAssignedStaff() != null) {
+            dto.setAssignedStaffName(entity.getAssignedStaff().getName());
+        }
 
         return dto;
     }
@@ -54,8 +58,17 @@ public class MaintenanceRequestService {
         Facility facility = facilityRepository.findById(request.getFacilityId())
                 .orElseThrow(() -> new RuntimeException("Facility not found"));
 
-        User tenant = userRepository.findById(1L) // replace 1L with your real placeholder user's id
-                .orElseThrow(() -> new RuntimeException("Tenant not found"));
+        String principalName = SecurityContextHolder.getContext().getAuthentication() != null
+                ? SecurityContextHolder.getContext().getAuthentication().getName()
+                : null;
+
+        if (principalName == null || principalName.isBlank()) {
+            throw new RuntimeException("No authenticated tenant found");
+        }
+
+        User tenant = userRepository.findByEmail(principalName)
+                .or(() -> userRepository.findByName(principalName))
+                .orElseThrow(() -> new RuntimeException("Tenant not found for principal: " + principalName));
 
         MaintenanceRequest maintenanceRequest = new MaintenanceRequest();
         maintenanceRequest.setTitle(request.getTitle());
@@ -127,6 +140,24 @@ public class MaintenanceRequestService {
         validateStatusTransition(currentStatus, nextStatus);
 
         maintenanceRequest.setStatus(nextStatus);
+
+        MaintenanceRequest savedRequest = maintenanceRequestRepository.save(maintenanceRequest);
+
+        return toDto(savedRequest);
+    }
+
+    public MaintenanceRequestResponseDTO assignStaff(Long id, AssignStaffDTO request) {
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+
+        User user = userRepository.findById(request.getStaffId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!(user.getRole() == Role.STAFF)) {
+            throw new IllegalStateException("Invalid role: " + user.getRole());
+        }
+
+        maintenanceRequest.setAssignedStaff(user);
 
         MaintenanceRequest savedRequest = maintenanceRequestRepository.save(maintenanceRequest);
 
