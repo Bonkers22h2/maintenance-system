@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.bonkers.maintenance_system.dto.AssignStaffDTO;
 import com.bonkers.maintenance_system.dto.CreateMaintenanceRequestDTO;
 import com.bonkers.maintenance_system.dto.MaintenanceRequestResponseDTO;
+import com.bonkers.maintenance_system.dto.StatusHistoryResponseDTO;
 import com.bonkers.maintenance_system.dto.UpdateMaintenanceRequestDTO;
 import com.bonkers.maintenance_system.dto.UpdateStatusDTO;
 import com.bonkers.maintenance_system.service.MaintenanceRequestService;
@@ -69,7 +70,7 @@ public class MaintenanceRequestController {
         return ResponseEntity.status(HttpStatus.CREATED).body(maintenanceRequest);
     }
 
-    @PreAuthorize("hasRole('STAFF')")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
     @PatchMapping("/{id}/status")
     public ResponseEntity<MaintenanceRequestResponseDTO> updateStatus(@PathVariable Long id,
             @Valid @RequestBody UpdateStatusDTO request) {
@@ -83,5 +84,12 @@ public class MaintenanceRequestController {
             @Valid @RequestBody AssignStaffDTO request) {
         MaintenanceRequestResponseDTO maintenanceRequest = maintenanceRequestService.assignStaff(id, request);
         return ResponseEntity.ok(maintenanceRequest);
+    }
+
+    @PreAuthorize("hasAnyRole('TENANT', 'STAFF', 'ADMIN')")
+    @GetMapping("/{id}/history")
+    public ResponseEntity<List<StatusHistoryResponseDTO>> getStatusHistory(@PathVariable Long id) {
+        List<StatusHistoryResponseDTO> history = maintenanceRequestService.getStatusHistory(id);
+        return ResponseEntity.ok(history);
     }
 }
