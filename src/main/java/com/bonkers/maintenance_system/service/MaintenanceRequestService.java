@@ -9,7 +9,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.server.context.ServerSecurityContextRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -87,8 +89,8 @@ public class MaintenanceRequestService {
             dto.setAssignedStaffName(entity.getAssignedStaff().getName());
         }
         boolean isOverdue = entity.getDueAt() != null
-            && entity.getDueAt().isBefore(LocalDateTime.now())
-            && entity.getStatus() != Status.RESOLVED;
+                && entity.getDueAt().isBefore(LocalDateTime.now())
+                && entity.getStatus() != Status.RESOLVED;
         dto.setOverdue(isOverdue);
 
         return dto;
@@ -216,12 +218,36 @@ public class MaintenanceRequestService {
 
     // Retrieve status history for a maintenance request
     public List<StatusHistoryResponseDTO> getStatusHistory(Long maintenanceRequestId) {
+        // 1. Fetch the maintenance request, or fail if it doesn't exist
         MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
                 .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
 
+        // 2. Get the email of whoever is currently logged in (from the JWT)
+        String principalName = SecurityContextHolder.getContext().getAuthentication() != null
+                ? SecurityContextHolder.getContext().getAuthentication().getName()
+                : null;
+
+        // 3. Look up the actual User record for that logged-in person
+        User user = userRepository.findByEmail(principalName)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 4. Ownership check — is this user allowed to view this request's history?
+        boolean isOwner = maintenanceRequest.getTenant().getId().equals(user.getId());
+        boolean isAssignedStaff = maintenanceRequest.getAssignedStaff() != null
+                && maintenanceRequest.getAssignedStaff().getId().equals(user.getId());
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+
+        // 5. Block access if they're not the tenant, not assigned staff, and not an
+        // admin
+        if (!isOwner && !isAssignedStaff && !isAdmin) {
+            throw new RuntimeException("Access denied");
+        }
+
+        // 6. Fetch the full status history for this request, oldest first
         List<StatusHistory> history = statusHistoryRepository
                 .findByMaintenanceRequestOrderByChangedAtAsc(maintenanceRequest);
 
+        // 7. Convert each StatusHistory entity into a DTO before returning
         return history.stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
@@ -327,6 +353,22 @@ public class MaintenanceRequestService {
         MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
                 .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
 
+        String principalName = SecurityContextHolder.getContext().getAuthentication() != null
+                ? SecurityContextHolder.getContext().getAuthentication().getName()
+                : null;
+
+        User user = userRepository.findByEmail(principalName)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        boolean isOwner = maintenanceRequest.getTenant().getId().equals(user.getId());
+        boolean isAssignedStaff = maintenanceRequest.getAssignedStaff() != null
+                && maintenanceRequest.getAssignedStaff().getId().equals(user.getId());
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+
+        if(!isOwner && !isAssignedStaff && !isAdmin){
+            throw new RuntimeException("Access denied");
+        }
+        
         List<Attachment> attachments = attachmentRepository.findByMaintenanceRequest(maintenanceRequest);
 
         return attachments.stream()
