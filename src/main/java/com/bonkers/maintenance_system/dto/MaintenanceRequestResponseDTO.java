@@ -16,6 +16,17 @@ public class MaintenanceRequestResponseDTO {
     private String tenantName;
     private String assignedStaffName;
     private String facilityName;
+    private boolean overdue;
+
+
+    public boolean isOverdue() {
+        return this.overdue;
+    }
+
+    public void setOverdue(boolean overdue) {
+        this.overdue = overdue;
+    }
+
 
     public Long getId() {
         return this.id;

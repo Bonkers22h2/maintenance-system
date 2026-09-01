@@ -86,6 +86,10 @@ public class MaintenanceRequestService {
         if (entity.getAssignedStaff() != null) {
             dto.setAssignedStaffName(entity.getAssignedStaff().getName());
         }
+        boolean isOverdue = entity.getDueAt() != null
+            && entity.getDueAt().isBefore(LocalDateTime.now())
+            && entity.getStatus() != Status.RESOLVED;
+        dto.setOverdue(isOverdue);
 
         return dto;
     }
@@ -132,6 +136,14 @@ public class MaintenanceRequestService {
                 .or(() -> userRepository.findByName(principalName))
                 .orElseThrow(() -> new RuntimeException("Tenant not found for principal: " + principalName));
 
+        int hours = switch (request.getPriority()) {
+            case HIGH -> 24;
+            case MEDIUM -> 72;
+            case LOW -> 168;
+        };
+
+        LocalDateTime dueAt = LocalDateTime.now().plusHours(hours);
+
         MaintenanceRequest maintenanceRequest = new MaintenanceRequest();
         maintenanceRequest.setTitle(request.getTitle());
         maintenanceRequest.setDescription(request.getDescription());
@@ -139,6 +151,7 @@ public class MaintenanceRequestService {
         maintenanceRequest.setFacility(facility);
         maintenanceRequest.setCreatedAt(LocalDateTime.now());
         maintenanceRequest.setTenant(tenant);
+        maintenanceRequest.setDueAt(dueAt);
 
         MaintenanceRequest saved = maintenanceRequestRepository.save(maintenanceRequest);
 
@@ -325,4 +338,5 @@ public class MaintenanceRequestService {
         return attachmentRepository.findById(attachmentId)
                 .orElseThrow(() -> new RuntimeException("Attachment not found"));
     }
+
 }
