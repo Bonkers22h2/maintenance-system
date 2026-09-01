@@ -6,7 +6,6 @@ import com.bonkers.maintenance_system.model.Comment;
 import com.bonkers.maintenance_system.model.MaintenanceRequest;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
     List<Comment> findByMaintenanceRequest(MaintenanceRequest maintenanceRequest);

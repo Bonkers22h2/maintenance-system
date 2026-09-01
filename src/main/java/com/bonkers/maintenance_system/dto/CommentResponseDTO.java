@@ -2,8 +2,6 @@ package com.bonkers.maintenance_system.dto;
 
 import java.time.LocalDateTime;
 
-import com.bonkers.maintenance_system.model.User;
-
 public class CommentResponseDTO {
     private Long id;
     private String content;
