@@ -1,6 +1,15 @@
 package com.bonkers.maintenance_system.controller;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
+import com.bonkers.maintenance_system.model.Attachment;
+import java.io.IOException;
+import java.nio.file.Path;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,9 +22,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.bonkers.maintenance_system.dto.AssignStaffDTO;
+import com.bonkers.maintenance_system.dto.AttachmentResponseDTO;
 import com.bonkers.maintenance_system.dto.CreateMaintenanceRequestDTO;
 import com.bonkers.maintenance_system.dto.MaintenanceRequestResponseDTO;
 import com.bonkers.maintenance_system.dto.StatusHistoryResponseDTO;
@@ -100,5 +112,41 @@ public class MaintenanceRequestController {
     public ResponseEntity<List<StatusHistoryResponseDTO>> getStatusHistory(@PathVariable Long id) {
         List<StatusHistoryResponseDTO> history = maintenanceRequestService.getStatusHistory(id);
         return ResponseEntity.ok(history);
+    }
+
+    @PostMapping("/{id}/attachments")
+    public ResponseEntity<AttachmentResponseDTO> uploadAttachment(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        AttachmentResponseDTO attachment = maintenanceRequestService.uploadAttachment(id, file);
+        return ResponseEntity.status(HttpStatus.CREATED).body(attachment);
+    }
+
+    @GetMapping("/{id}/attachments")
+    public ResponseEntity<List<AttachmentResponseDTO>> getAttachments(@PathVariable Long id) {
+        List<AttachmentResponseDTO> attachments = maintenanceRequestService.getAttachments(id);
+        return ResponseEntity.ok(attachments);
+    }
+
+    @GetMapping("/{id}/attachments/{attachmentId}/download")
+    public ResponseEntity<Resource> downloadAttachment(
+            @PathVariable Long id,
+            @PathVariable Long attachmentId) throws IOException {
+
+        Attachment attachment = maintenanceRequestService.getAttachmentEntity(attachmentId);
+
+        Path filePath = Paths.get(attachment.getFilePath());
+        Resource resource = new UrlResource(filePath.toUri());
+
+        if (!resource.exists()) {
+            throw new RuntimeException("File not found on disk");
+        }
+
+        String contentType = Files.probeContentType(filePath);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType != null ? contentType : "application/octet-stream"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + attachment.getFileName() + "\"")
+                .body(resource);
     }
 }

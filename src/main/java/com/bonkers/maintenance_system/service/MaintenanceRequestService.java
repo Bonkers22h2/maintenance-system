@@ -1,28 +1,39 @@
 package com.bonkers.maintenance_system.service;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.bonkers.maintenance_system.dto.AssignStaffDTO;
+import com.bonkers.maintenance_system.dto.AttachmentResponseDTO;
 import com.bonkers.maintenance_system.dto.CreateMaintenanceRequestDTO;
 import com.bonkers.maintenance_system.dto.MaintenanceRequestResponseDTO;
 import com.bonkers.maintenance_system.dto.StatusHistoryResponseDTO;
 import com.bonkers.maintenance_system.dto.UpdateMaintenanceRequestDTO;
 import com.bonkers.maintenance_system.dto.UpdateStatusDTO;
+import com.bonkers.maintenance_system.model.Attachment;
 import com.bonkers.maintenance_system.model.Facility;
 import com.bonkers.maintenance_system.model.MaintenanceRequest;
 import com.bonkers.maintenance_system.model.Role;
 import com.bonkers.maintenance_system.model.Status;
 import com.bonkers.maintenance_system.model.StatusHistory;
 import com.bonkers.maintenance_system.model.User;
+import com.bonkers.maintenance_system.repository.AttachmentRepository;
 import com.bonkers.maintenance_system.repository.FacilityRepository;
 import com.bonkers.maintenance_system.repository.MaintenanceRequestRepository;
 import com.bonkers.maintenance_system.repository.StatusHistoryRepository;
 import com.bonkers.maintenance_system.repository.UserRepository;
+
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class MaintenanceRequestService {
@@ -32,14 +43,18 @@ public class MaintenanceRequestService {
     private final UserRepository userRepository;
 
     // Constructor to initialize repositories
+    private final AttachmentRepository attachmentRepository;
+
     public MaintenanceRequestService(FacilityRepository facilityRepository,
             MaintenanceRequestRepository maintenanceRequestRepository,
             UserRepository userRepository,
-            StatusHistoryRepository statusHistoryRepository) {
+            StatusHistoryRepository statusHistoryRepository,
+            AttachmentRepository attachmentRepository) {
         this.facilityRepository = facilityRepository;
         this.maintenanceRequestRepository = maintenanceRequestRepository;
         this.userRepository = userRepository;
         this.statusHistoryRepository = statusHistoryRepository;
+        this.attachmentRepository = attachmentRepository;
     }
 
     // Log status change history for a maintenance request
@@ -54,7 +69,6 @@ public class MaintenanceRequestService {
 
         return statusHistoryRepository.save(statusHistory);
     }
-
 
     // Convert MaintenanceRequest entity to DTO
     private MaintenanceRequestResponseDTO toDto(MaintenanceRequest entity) {
@@ -72,6 +86,17 @@ public class MaintenanceRequestService {
         if (entity.getAssignedStaff() != null) {
             dto.setAssignedStaffName(entity.getAssignedStaff().getName());
         }
+
+        return dto;
+    }
+
+    private AttachmentResponseDTO toDto(Attachment entity) {
+        AttachmentResponseDTO dto = new AttachmentResponseDTO();
+
+        dto.setId(entity.getId());
+        dto.setFileName(entity.getFileName());
+        dto.setMaintenanceRequestId(entity.getMaintenanceRequest().getId());
+        dto.setUploadedAt(entity.getUploadedAt());
 
         return dto;
     }
@@ -179,13 +204,14 @@ public class MaintenanceRequestService {
     // Retrieve status history for a maintenance request
     public List<StatusHistoryResponseDTO> getStatusHistory(Long maintenanceRequestId) {
         MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
-            .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
 
-        List<StatusHistory> history = statusHistoryRepository.findByMaintenanceRequestOrderByChangedAtAsc(maintenanceRequest);
+        List<StatusHistory> history = statusHistoryRepository
+                .findByMaintenanceRequestOrderByChangedAtAsc(maintenanceRequest);
 
         return history.stream()
-            .map(this::toDto)
-            .collect(Collectors.toList());
+                .map(this::toDto)
+                .collect(Collectors.toList());
     }
 
     // Validate if status transition is allowed
@@ -249,5 +275,54 @@ public class MaintenanceRequestService {
         MaintenanceRequest savedRequest = maintenanceRequestRepository.save(maintenanceRequest);
 
         return toDto(savedRequest);
+    }
+
+    @Value("${file.upload-dir}")
+    private String uploadDir;
+
+    public AttachmentResponseDTO uploadAttachment(Long maintenanceRequestId, MultipartFile file) {
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
+                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+
+        String uniqueFileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+        Path targetPath = Paths.get(uploadDir, uniqueFileName);
+
+        try {
+            Files.write(targetPath, file.getBytes());
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to store file", e);
+        }
+
+        Attachment attachment = new Attachment();
+        attachment.setFileName(file.getOriginalFilename());
+        attachment.setFilePath(targetPath.toString());
+        attachment.setUploadedAt(LocalDateTime.now());
+        attachment.setMaintenanceRequest(maintenanceRequest);
+
+        Attachment saved = attachmentRepository.save(attachment);
+
+        AttachmentResponseDTO dto = new AttachmentResponseDTO();
+        dto.setId(saved.getId());
+        dto.setFileName(saved.getFileName());
+        dto.setUploadedAt(saved.getUploadedAt());
+        dto.setMaintenanceRequestId(saved.getMaintenanceRequest().getId());
+
+        return dto;
+    }
+
+    public List<AttachmentResponseDTO> getAttachments(Long maintenanceRequestId) {
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
+                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+
+        List<Attachment> attachments = attachmentRepository.findByMaintenanceRequest(maintenanceRequest);
+
+        return attachments.stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    public Attachment getAttachmentEntity(Long attachmentId) {
+        return attachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new RuntimeException("Attachment not found"));
     }
 }
