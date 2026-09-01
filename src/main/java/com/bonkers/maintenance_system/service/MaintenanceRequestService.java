@@ -9,9 +9,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.server.context.ServerSecurityContextRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -368,7 +366,7 @@ public class MaintenanceRequestService {
         if(!isOwner && !isAssignedStaff && !isAdmin){
             throw new RuntimeException("Access denied");
         }
-        
+
         List<Attachment> attachments = attachmentRepository.findByMaintenanceRequest(maintenanceRequest);
 
         return attachments.stream()
