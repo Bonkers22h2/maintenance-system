@@ -41,20 +41,21 @@ public class MaintenanceRequestService {
     private final FacilityRepository facilityRepository;
     private final MaintenanceRequestRepository maintenanceRequestRepository;
     private final UserRepository userRepository;
-
-    // Constructor to initialize repositories
     private final AttachmentRepository attachmentRepository;
+    private final NotificationService notificationService;
 
     public MaintenanceRequestService(FacilityRepository facilityRepository,
             MaintenanceRequestRepository maintenanceRequestRepository,
             UserRepository userRepository,
             StatusHistoryRepository statusHistoryRepository,
-            AttachmentRepository attachmentRepository) {
+            AttachmentRepository attachmentRepository,
+            NotificationService notificationService) {
         this.facilityRepository = facilityRepository;
         this.maintenanceRequestRepository = maintenanceRequestRepository;
         this.userRepository = userRepository;
         this.statusHistoryRepository = statusHistoryRepository;
         this.attachmentRepository = attachmentRepository;
+        this.notificationService = notificationService;
     }
 
     // Log status change history for a maintenance request
@@ -290,6 +291,11 @@ public class MaintenanceRequestService {
         maintenanceRequest.setStatus(nextStatus);
         MaintenanceRequest savedRequest = maintenanceRequestRepository.save(maintenanceRequest);
 
+        notificationService.createNotification(
+                maintenanceRequest.getTenant(),
+                "Your request '" + maintenanceRequest.getTitle() + "' status changed to " + nextStatus,
+                maintenanceRequest);
+
         logStatusHistory(currentStatus, nextStatus, maintenanceRequest, user);
 
         return toDto(savedRequest);
@@ -310,6 +316,10 @@ public class MaintenanceRequestService {
         maintenanceRequest.setAssignedStaff(user);
 
         MaintenanceRequest savedRequest = maintenanceRequestRepository.save(maintenanceRequest);
+        notificationService.createNotification(
+                user, // the staff member
+                "You have been assigned to request '" + maintenanceRequest.getTitle() + "'",
+                maintenanceRequest);
 
         return toDto(savedRequest);
     }
@@ -363,7 +373,7 @@ public class MaintenanceRequestService {
                 && maintenanceRequest.getAssignedStaff().getId().equals(user.getId());
         boolean isAdmin = user.getRole() == Role.ADMIN;
 
-        if(!isOwner && !isAssignedStaff && !isAdmin){
+        if (!isOwner && !isAssignedStaff && !isAdmin) {
             throw new RuntimeException("Access denied");
         }
 
