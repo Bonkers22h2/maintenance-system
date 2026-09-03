@@ -11,7 +11,6 @@ import com.bonkers.maintenance_system.dto.NotificationResponseDTO;
 import com.bonkers.maintenance_system.model.MaintenanceRequest;
 import com.bonkers.maintenance_system.model.Notification;
 import com.bonkers.maintenance_system.model.User;
-import com.bonkers.maintenance_system.repository.MaintenanceRequestRepository;
 import com.bonkers.maintenance_system.repository.NotificationRepository;
 import com.bonkers.maintenance_system.repository.UserRepository;
 
@@ -19,13 +18,10 @@ import com.bonkers.maintenance_system.repository.UserRepository;
 public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
-    private final MaintenanceRequestRepository maintenanceRequestRepository;
 
-    public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository,
-            MaintenanceRequestRepository maintenanceRequestRepository) {
+    public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
-        this.maintenanceRequestRepository = maintenanceRequestRepository;
     }
 
     private NotificationResponseDTO toDto(Notification entity) {
