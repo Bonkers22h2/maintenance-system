@@ -37,356 +37,359 @@ import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class MaintenanceRequestService {
-    private final StatusHistoryRepository statusHistoryRepository;
-    private final FacilityRepository facilityRepository;
-    private final MaintenanceRequestRepository maintenanceRequestRepository;
-    private final UserRepository userRepository;
-    private final AttachmentRepository attachmentRepository;
-    private final NotificationService notificationService;
+        private final StatusHistoryRepository statusHistoryRepository;
+        private final FacilityRepository facilityRepository;
+        private final MaintenanceRequestRepository maintenanceRequestRepository;
+        private final UserRepository userRepository;
+        private final AttachmentRepository attachmentRepository;
+        private final NotificationService notificationService;
 
-    public MaintenanceRequestService(FacilityRepository facilityRepository,
-            MaintenanceRequestRepository maintenanceRequestRepository,
-            UserRepository userRepository,
-            StatusHistoryRepository statusHistoryRepository,
-            AttachmentRepository attachmentRepository,
-            NotificationService notificationService) {
-        this.facilityRepository = facilityRepository;
-        this.maintenanceRequestRepository = maintenanceRequestRepository;
-        this.userRepository = userRepository;
-        this.statusHistoryRepository = statusHistoryRepository;
-        this.attachmentRepository = attachmentRepository;
-        this.notificationService = notificationService;
-    }
-
-    // Log status change history for a maintenance request
-    private StatusHistory logStatusHistory(Status oldStatus, Status newStatus, MaintenanceRequest maintenanceRequest,
-            User user) {
-        StatusHistory statusHistory = new StatusHistory();
-        statusHistory.setOldStatus(oldStatus);
-        statusHistory.setNewStatus(newStatus);
-        statusHistory.setMaintenanceRequest(maintenanceRequest);
-        statusHistory.setChangedBy(user);
-        statusHistory.setChangedAt(LocalDateTime.now());
-
-        return statusHistoryRepository.save(statusHistory);
-    }
-
-    // Convert MaintenanceRequest entity to DTO
-    private MaintenanceRequestResponseDTO toDto(MaintenanceRequest entity) {
-        MaintenanceRequestResponseDTO dto = new MaintenanceRequestResponseDTO();
-
-        dto.setId(entity.getId());
-        dto.setTitle(entity.getTitle());
-        dto.setDescription(entity.getDescription());
-        dto.setStatus(entity.getStatus());
-        dto.setPriority(entity.getPriority());
-        dto.setCreatedAt(entity.getCreatedAt());
-        dto.setDueAt(entity.getDueAt());
-        dto.setFacilityName(entity.getFacility().getName());
-        dto.setTenantName(entity.getTenant().getName());
-        if (entity.getAssignedStaff() != null) {
-            dto.setAssignedStaffName(entity.getAssignedStaff().getName());
-        }
-        boolean isOverdue = entity.getDueAt() != null
-                && entity.getDueAt().isBefore(LocalDateTime.now())
-                && entity.getStatus() != Status.RESOLVED;
-        dto.setOverdue(isOverdue);
-
-        return dto;
-    }
-
-    private AttachmentResponseDTO toDto(Attachment entity) {
-        AttachmentResponseDTO dto = new AttachmentResponseDTO();
-
-        dto.setId(entity.getId());
-        dto.setFileName(entity.getFileName());
-        dto.setMaintenanceRequestId(entity.getMaintenanceRequest().getId());
-        dto.setUploadedAt(entity.getUploadedAt());
-
-        return dto;
-    }
-
-    // Convert StatusHistory entity to DTO
-    private StatusHistoryResponseDTO toDto(StatusHistory entity) {
-        StatusHistoryResponseDTO dto = new StatusHistoryResponseDTO();
-
-        dto.setId(entity.getId());
-        dto.setOldStatus(entity.getOldStatus());
-        dto.setNewStatus(entity.getNewStatus());
-        dto.setChangedAt(entity.getChangedAt());
-        dto.setMaintenanceRequest(entity.getMaintenanceRequest().getTitle());
-        dto.setChangedBy(entity.getChangedBy().getName());
-
-        return dto;
-    }
-
-    // Create a new maintenance request
-    public MaintenanceRequestResponseDTO createMaintenanceRequest(CreateMaintenanceRequestDTO request) {
-        Facility facility = facilityRepository.findById(request.getFacilityId())
-                .orElseThrow(() -> new RuntimeException("Facility not found"));
-
-        String principalName = SecurityContextHolder.getContext().getAuthentication() != null
-                ? SecurityContextHolder.getContext().getAuthentication().getName()
-                : null;
-
-        if (principalName == null || principalName.isBlank()) {
-            throw new RuntimeException("No authenticated tenant found");
+        public MaintenanceRequestService(FacilityRepository facilityRepository,
+                        MaintenanceRequestRepository maintenanceRequestRepository,
+                        UserRepository userRepository,
+                        StatusHistoryRepository statusHistoryRepository,
+                        AttachmentRepository attachmentRepository,
+                        NotificationService notificationService) {
+                this.facilityRepository = facilityRepository;
+                this.maintenanceRequestRepository = maintenanceRequestRepository;
+                this.userRepository = userRepository;
+                this.statusHistoryRepository = statusHistoryRepository;
+                this.attachmentRepository = attachmentRepository;
+                this.notificationService = notificationService;
         }
 
-        User tenant = userRepository.findByEmail(principalName)
-                .or(() -> userRepository.findByName(principalName))
-                .orElseThrow(() -> new RuntimeException("Tenant not found for principal: " + principalName));
+        // Log status change history for a maintenance request
+        private StatusHistory logStatusHistory(Status oldStatus, Status newStatus,
+                        MaintenanceRequest maintenanceRequest,
+                        User user) {
+                StatusHistory statusHistory = new StatusHistory();
+                statusHistory.setOldStatus(oldStatus);
+                statusHistory.setNewStatus(newStatus);
+                statusHistory.setMaintenanceRequest(maintenanceRequest);
+                statusHistory.setChangedBy(user);
+                statusHistory.setChangedAt(LocalDateTime.now());
 
-        int hours = switch (request.getPriority()) {
-            case HIGH -> 24;
-            case MEDIUM -> 72;
-            case LOW -> 168;
-        };
-
-        LocalDateTime dueAt = LocalDateTime.now().plusHours(hours);
-
-        MaintenanceRequest maintenanceRequest = new MaintenanceRequest();
-        maintenanceRequest.setTitle(request.getTitle());
-        maintenanceRequest.setDescription(request.getDescription());
-        maintenanceRequest.setPriority(request.getPriority());
-        maintenanceRequest.setFacility(facility);
-        maintenanceRequest.setCreatedAt(LocalDateTime.now());
-        maintenanceRequest.setTenant(tenant);
-        maintenanceRequest.setDueAt(dueAt);
-
-        MaintenanceRequest saved = maintenanceRequestRepository.save(maintenanceRequest);
-
-        return toDto(saved);
-    }
-
-    // Update an existing maintenance request
-    public MaintenanceRequestResponseDTO updateMaintenanceRequest(Long id, UpdateMaintenanceRequestDTO request) {
-        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
-
-        maintenanceRequest.setTitle(request.getTitle());
-        maintenanceRequest.setDescription(request.getDescription());
-        maintenanceRequest.setPriority(request.getPriority());
-
-        MaintenanceRequest saved = maintenanceRequestRepository.save(maintenanceRequest);
-        return toDto(saved);
-    }
-
-    // Retrieve a specific maintenance request by ID
-    public MaintenanceRequestResponseDTO getMaintenanceRequest(Long id) {
-        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
-
-        return toDto(maintenanceRequest);
-    }
-
-    // Delete a maintenance request
-    public void deleteMaintenanceRequest(Long id) {
-        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
-
-        maintenanceRequestRepository.delete(maintenanceRequest);
-    }
-
-    // Retrieve all maintenance requests filtered by user role
-    public List<MaintenanceRequestResponseDTO> getAllMaintenanceRequests() {
-        String principalName = SecurityContextHolder.getContext().getAuthentication() != null
-                ? SecurityContextHolder.getContext().getAuthentication().getName()
-                : null;
-
-        if (principalName == null || principalName.isBlank()) {
-            throw new RuntimeException("No authenticated tenant found");
+                return statusHistoryRepository.save(statusHistory);
         }
 
-        User user = userRepository.findByEmail(principalName)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        // Convert MaintenanceRequest entity to DTO
+        private MaintenanceRequestResponseDTO toDto(MaintenanceRequest entity) {
+                MaintenanceRequestResponseDTO dto = new MaintenanceRequestResponseDTO();
 
-        List<MaintenanceRequest> results;
+                dto.setId(entity.getId());
+                dto.setTitle(entity.getTitle());
+                dto.setDescription(entity.getDescription());
+                dto.setStatus(entity.getStatus());
+                dto.setPriority(entity.getPriority());
+                dto.setCreatedAt(entity.getCreatedAt());
+                dto.setDueAt(entity.getDueAt());
+                dto.setFacilityName(entity.getFacility().getName());
+                dto.setTenantName(entity.getTenant().getName());
+                if (entity.getAssignedStaff() != null) {
+                        dto.setAssignedStaffName(entity.getAssignedStaff().getName());
+                }
+                boolean isOverdue = entity.getDueAt() != null
+                                && entity.getDueAt().isBefore(LocalDateTime.now())
+                                && entity.getStatus() != Status.RESOLVED;
+                dto.setOverdue(isOverdue);
 
-        switch (user.getRole()) {
-            case TENANT -> results = maintenanceRequestRepository.findByTenant(user);
-            case STAFF -> results = maintenanceRequestRepository.findByAssignedStaff(user);
-            case ADMIN -> results = maintenanceRequestRepository.findAll();
-            default -> throw new IllegalStateException("Unknown role: " + user.getRole());
+                return dto;
         }
 
-        return results.stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
-    }
+        private AttachmentResponseDTO toDto(Attachment entity) {
+                AttachmentResponseDTO dto = new AttachmentResponseDTO();
 
-    // Retrieve status history for a maintenance request
-    public List<StatusHistoryResponseDTO> getStatusHistory(Long maintenanceRequestId) {
-        // 1. Fetch the maintenance request, or fail if it doesn't exist
-        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
-                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                dto.setId(entity.getId());
+                dto.setFileName(entity.getFileName());
+                dto.setMaintenanceRequestId(entity.getMaintenanceRequest().getId());
+                dto.setUploadedAt(entity.getUploadedAt());
 
-        // 2. Get the email of whoever is currently logged in (from the JWT)
-        String principalName = SecurityContextHolder.getContext().getAuthentication() != null
-                ? SecurityContextHolder.getContext().getAuthentication().getName()
-                : null;
-
-        // 3. Look up the actual User record for that logged-in person
-        User user = userRepository.findByEmail(principalName)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // 4. Ownership check — is this user allowed to view this request's history?
-        boolean isOwner = maintenanceRequest.getTenant().getId().equals(user.getId());
-        boolean isAssignedStaff = maintenanceRequest.getAssignedStaff() != null
-                && maintenanceRequest.getAssignedStaff().getId().equals(user.getId());
-        boolean isAdmin = user.getRole() == Role.ADMIN;
-
-        // 5. Block access if they're not the tenant, not assigned staff, and not an
-        // admin
-        if (!isOwner && !isAssignedStaff && !isAdmin) {
-            throw new RuntimeException("Access denied");
+                return dto;
         }
 
-        // 6. Fetch the full status history for this request, oldest first
-        List<StatusHistory> history = statusHistoryRepository
-                .findByMaintenanceRequestOrderByChangedAtAsc(maintenanceRequest);
+        // Convert StatusHistory entity to DTO
+        private StatusHistoryResponseDTO toDto(StatusHistory entity) {
+                StatusHistoryResponseDTO dto = new StatusHistoryResponseDTO();
 
-        // 7. Convert each StatusHistory entity into a DTO before returning
-        return history.stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
-    }
+                dto.setId(entity.getId());
+                dto.setOldStatus(entity.getOldStatus());
+                dto.setNewStatus(entity.getNewStatus());
+                dto.setChangedAt(entity.getChangedAt());
+                dto.setMaintenanceRequest(entity.getMaintenanceRequest().getTitle());
+                dto.setChangedBy(entity.getChangedBy().getName());
 
-    // Validate if status transition is allowed
-    private void validateStatusTransition(Status current, Status next) {
-        boolean valid = switch (current) {
-            case SUBMITTED -> next == Status.ASSIGNED;
-            case ASSIGNED -> next == Status.IN_PROGRESS;
-            case IN_PROGRESS -> next == Status.RESOLVED;
-            case RESOLVED -> false;
-        };
-
-        if (!valid) {
-            throw new IllegalStateException(
-                    "Invalid status transition: " + current + " -> " + next);
-        }
-    }
-
-    // Update the status of a maintenance request
-    public MaintenanceRequestResponseDTO updateStatus(Long id, UpdateStatusDTO request) {
-        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
-
-        Status currentStatus = maintenanceRequest.getStatus();
-        Status nextStatus = request.getStatus();
-
-        validateStatusTransition(currentStatus, nextStatus);
-
-        String principalName = SecurityContextHolder.getContext().getAuthentication() != null
-                ? SecurityContextHolder.getContext().getAuthentication().getName()
-                : null;
-
-        if (principalName == null || principalName.isBlank()) {
-            throw new RuntimeException("No authenticated user found");
+                return dto;
         }
 
-        User user = userRepository.findByEmail(principalName)
-                .orElseThrow(() -> new RuntimeException("User not found for principal: " + principalName));
+        // Create a new maintenance request
+        public MaintenanceRequestResponseDTO createMaintenanceRequest(CreateMaintenanceRequestDTO request) {
+                Facility facility = facilityRepository.findById(request.getFacilityId())
+                                .orElseThrow(() -> new RuntimeException("Facility not found"));
 
-        maintenanceRequest.setStatus(nextStatus);
-        MaintenanceRequest savedRequest = maintenanceRequestRepository.save(maintenanceRequest);
+                String principalName = SecurityContextHolder.getContext().getAuthentication() != null
+                                ? SecurityContextHolder.getContext().getAuthentication().getName()
+                                : null;
 
-        notificationService.createNotification(
-                maintenanceRequest.getTenant(),
-                "Your request '" + maintenanceRequest.getTitle() + "' status changed to " + nextStatus,
-                maintenanceRequest);
+                if (principalName == null || principalName.isBlank()) {
+                        throw new RuntimeException("No authenticated tenant found");
+                }
 
-        logStatusHistory(currentStatus, nextStatus, maintenanceRequest, user);
+                User tenant = userRepository.findByEmail(principalName)
+                                .or(() -> userRepository.findByName(principalName))
+                                .orElseThrow(() -> new RuntimeException(
+                                                "Tenant not found for principal: " + principalName));
 
-        return toDto(savedRequest);
-    }
+                int hours = switch (request.getPriority()) {
+                        case HIGH -> 24;
+                        case MEDIUM -> 72;
+                        case LOW -> 168;
+                };
 
-    // Assign staff member to a maintenance request
-    public MaintenanceRequestResponseDTO assignStaff(Long id, AssignStaffDTO request) {
-        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                LocalDateTime dueAt = LocalDateTime.now().plusHours(hours);
 
-        User user = userRepository.findById(request.getStaffId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                MaintenanceRequest maintenanceRequest = new MaintenanceRequest();
+                maintenanceRequest.setTitle(request.getTitle());
+                maintenanceRequest.setDescription(request.getDescription());
+                maintenanceRequest.setPriority(request.getPriority());
+                maintenanceRequest.setFacility(facility);
+                maintenanceRequest.setCreatedAt(LocalDateTime.now());
+                maintenanceRequest.setTenant(tenant);
+                maintenanceRequest.setDueAt(dueAt);
 
-        if (!(user.getRole() == Role.STAFF)) {
-            throw new IllegalStateException("Invalid role: " + user.getRole());
+                MaintenanceRequest saved = maintenanceRequestRepository.save(maintenanceRequest);
+
+                return toDto(saved);
         }
 
-        maintenanceRequest.setAssignedStaff(user);
+        // Update an existing maintenance request
+        public MaintenanceRequestResponseDTO updateMaintenanceRequest(Long id, UpdateMaintenanceRequestDTO request) {
+                MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
 
-        MaintenanceRequest savedRequest = maintenanceRequestRepository.save(maintenanceRequest);
-        notificationService.createNotification(
-                user, // the staff member
-                "You have been assigned to request '" + maintenanceRequest.getTitle() + "'",
-                maintenanceRequest);
+                maintenanceRequest.setTitle(request.getTitle());
+                maintenanceRequest.setDescription(request.getDescription());
+                maintenanceRequest.setPriority(request.getPriority());
 
-        return toDto(savedRequest);
-    }
-
-    @Value("${file.upload-dir}")
-    private String uploadDir;
-
-    public AttachmentResponseDTO uploadAttachment(Long maintenanceRequestId, MultipartFile file) {
-        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
-                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
-
-        String uniqueFileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-        Path targetPath = Paths.get(uploadDir, uniqueFileName);
-
-        try {
-            Files.write(targetPath, file.getBytes());
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to store file", e);
+                MaintenanceRequest saved = maintenanceRequestRepository.save(maintenanceRequest);
+                return toDto(saved);
         }
 
-        Attachment attachment = new Attachment();
-        attachment.setFileName(file.getOriginalFilename());
-        attachment.setFilePath(targetPath.toString());
-        attachment.setUploadedAt(LocalDateTime.now());
-        attachment.setMaintenanceRequest(maintenanceRequest);
+        // Retrieve a specific maintenance request by ID
+        public MaintenanceRequestResponseDTO getMaintenanceRequest(Long id) {
+                MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
 
-        Attachment saved = attachmentRepository.save(attachment);
-
-        AttachmentResponseDTO dto = new AttachmentResponseDTO();
-        dto.setId(saved.getId());
-        dto.setFileName(saved.getFileName());
-        dto.setUploadedAt(saved.getUploadedAt());
-        dto.setMaintenanceRequestId(saved.getMaintenanceRequest().getId());
-
-        return dto;
-    }
-
-    public List<AttachmentResponseDTO> getAttachments(Long maintenanceRequestId) {
-        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
-                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
-
-        String principalName = SecurityContextHolder.getContext().getAuthentication() != null
-                ? SecurityContextHolder.getContext().getAuthentication().getName()
-                : null;
-
-        User user = userRepository.findByEmail(principalName)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        boolean isOwner = maintenanceRequest.getTenant().getId().equals(user.getId());
-        boolean isAssignedStaff = maintenanceRequest.getAssignedStaff() != null
-                && maintenanceRequest.getAssignedStaff().getId().equals(user.getId());
-        boolean isAdmin = user.getRole() == Role.ADMIN;
-
-        if (!isOwner && !isAssignedStaff && !isAdmin) {
-            throw new RuntimeException("Access denied");
+                return toDto(maintenanceRequest);
         }
 
-        List<Attachment> attachments = attachmentRepository.findByMaintenanceRequest(maintenanceRequest);
+        // Delete a maintenance request
+        public void deleteMaintenanceRequest(Long id) {
+                MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
 
-        return attachments.stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
-    }
+                maintenanceRequestRepository.delete(maintenanceRequest);
+        }
 
-    public Attachment getAttachmentEntity(Long attachmentId) {
-        return attachmentRepository.findById(attachmentId)
-                .orElseThrow(() -> new RuntimeException("Attachment not found"));
-    }
+        // Retrieve all maintenance requests filtered by user role
+        public List<MaintenanceRequestResponseDTO> getAllMaintenanceRequests() {
+                String principalName = SecurityContextHolder.getContext().getAuthentication() != null
+                                ? SecurityContextHolder.getContext().getAuthentication().getName()
+                                : null;
+
+                if (principalName == null || principalName.isBlank()) {
+                        throw new RuntimeException("No authenticated tenant found");
+                }
+
+                User user = userRepository.findByEmail(principalName)
+                                .orElseThrow(() -> new RuntimeException("User not found"));
+
+                List<MaintenanceRequest> results;
+
+                switch (user.getRole()) {
+                        case TENANT -> results = maintenanceRequestRepository.findByTenant(user);
+                        case STAFF -> results = maintenanceRequestRepository.findByAssignedStaff(user);
+                        case ADMIN -> results = maintenanceRequestRepository.findAll();
+                        default -> throw new IllegalStateException("Unknown role: " + user.getRole());
+                }
+
+                return results.stream()
+                                .map(this::toDto)
+                                .collect(Collectors.toList());
+        }
+
+        // Retrieve status history for a maintenance request
+        public List<StatusHistoryResponseDTO> getStatusHistory(Long maintenanceRequestId) {
+                // 1. Fetch the maintenance request, or fail if it doesn't exist
+                MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
+                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+
+                // 2. Get the email of whoever is currently logged in (from the JWT)
+                String principalName = SecurityContextHolder.getContext().getAuthentication() != null
+                                ? SecurityContextHolder.getContext().getAuthentication().getName()
+                                : null;
+
+                // 3. Look up the actual User record for that logged-in person
+                User user = userRepository.findByEmail(principalName)
+                                .orElseThrow(() -> new RuntimeException("User not found"));
+
+                // 4. Ownership check — is this user allowed to view this request's history?
+                boolean isOwner = maintenanceRequest.getTenant().getId().equals(user.getId());
+                boolean isAssignedStaff = maintenanceRequest.getAssignedStaff() != null
+                                && maintenanceRequest.getAssignedStaff().getId().equals(user.getId());
+                boolean isAdmin = user.getRole() == Role.ADMIN;
+
+                // 5. Block access if they're not the tenant, not assigned staff, and not an
+                // admin
+                if (!isOwner && !isAssignedStaff && !isAdmin) {
+                        throw new RuntimeException("Access denied");
+                }
+
+                // 6. Fetch the full status history for this request, oldest first
+                List<StatusHistory> history = statusHistoryRepository
+                                .findByMaintenanceRequestOrderByChangedAtAsc(maintenanceRequest);
+
+                // 7. Convert each StatusHistory entity into a DTO before returning
+                return history.stream()
+                                .map(this::toDto)
+                                .collect(Collectors.toList());
+        }
+
+        // Validate if status transition is allowed
+        private void validateStatusTransition(Status current, Status next) {
+                boolean valid = switch (current) {
+                        case SUBMITTED -> next == Status.ASSIGNED;
+                        case ASSIGNED -> next == Status.IN_PROGRESS;
+                        case IN_PROGRESS -> next == Status.RESOLVED;
+                        case RESOLVED -> false;
+                };
+
+                if (!valid) {
+                        throw new IllegalStateException(
+                                        "Invalid status transition: " + current + " -> " + next);
+                }
+        }
+
+        // Update the status of a maintenance request
+        public MaintenanceRequestResponseDTO updateStatus(Long id, UpdateStatusDTO request) {
+                MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+
+                Status currentStatus = maintenanceRequest.getStatus();
+                Status nextStatus = request.getStatus();
+
+                validateStatusTransition(currentStatus, nextStatus);
+
+                String principalName = SecurityContextHolder.getContext().getAuthentication() != null
+                                ? SecurityContextHolder.getContext().getAuthentication().getName()
+                                : null;
+
+                if (principalName == null || principalName.isBlank()) {
+                        throw new RuntimeException("No authenticated user found");
+                }
+
+                User user = userRepository.findByEmail(principalName)
+                                .orElseThrow(() -> new RuntimeException(
+                                                "User not found for principal: " + principalName));
+
+                maintenanceRequest.setStatus(nextStatus);
+                MaintenanceRequest savedRequest = maintenanceRequestRepository.save(maintenanceRequest);
+
+                notificationService.createNotification(
+                                maintenanceRequest.getTenant(),
+                                "Your request '" + maintenanceRequest.getTitle() + "' status changed to " + nextStatus,
+                                maintenanceRequest);
+
+                logStatusHistory(currentStatus, nextStatus, maintenanceRequest, user);
+
+                return toDto(savedRequest);
+        }
+
+        // Assign staff member to a maintenance request
+        public MaintenanceRequestResponseDTO assignStaff(Long id, AssignStaffDTO request) {
+                MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+
+                User user = userRepository.findById(request.getStaffId())
+                                .orElseThrow(() -> new RuntimeException("User not found"));
+
+                if (!(user.getRole() == Role.STAFF)) {
+                        throw new IllegalStateException("Invalid role: " + user.getRole());
+                }
+
+                maintenanceRequest.setAssignedStaff(user);
+
+                MaintenanceRequest savedRequest = maintenanceRequestRepository.save(maintenanceRequest);
+                notificationService.createNotification(
+                                user, // the staff member
+                                "You have been assigned to request '" + maintenanceRequest.getTitle() + "'",
+                                maintenanceRequest);
+
+                return toDto(savedRequest);
+        }
+
+        @Value("${file.upload-dir}")
+        private String uploadDir;
+
+        public AttachmentResponseDTO uploadAttachment(Long maintenanceRequestId, MultipartFile file) {
+                MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
+                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+
+                String uniqueFileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+                Path targetPath = Paths.get(uploadDir, uniqueFileName);
+
+                try {
+                        Files.write(targetPath, file.getBytes());
+                } catch (IOException e) {
+                        throw new RuntimeException("Failed to store file", e);
+                }
+
+                Attachment attachment = new Attachment();
+                attachment.setFileName(file.getOriginalFilename());
+                attachment.setFilePath(targetPath.toString());
+                attachment.setUploadedAt(LocalDateTime.now());
+                attachment.setMaintenanceRequest(maintenanceRequest);
+
+                Attachment saved = attachmentRepository.save(attachment);
+
+                AttachmentResponseDTO dto = new AttachmentResponseDTO();
+                dto.setId(saved.getId());
+                dto.setFileName(saved.getFileName());
+                dto.setUploadedAt(saved.getUploadedAt());
+                dto.setMaintenanceRequestId(saved.getMaintenanceRequest().getId());
+
+                return dto;
+        }
+
+        public List<AttachmentResponseDTO> getAttachments(Long maintenanceRequestId) {
+                MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
+                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+
+                String principalName = SecurityContextHolder.getContext().getAuthentication() != null
+                                ? SecurityContextHolder.getContext().getAuthentication().getName()
+                                : null;
+
+                User user = userRepository.findByEmail(principalName)
+                                .orElseThrow(() -> new RuntimeException("User not found"));
+
+                boolean isOwner = maintenanceRequest.getTenant().getId().equals(user.getId());
+                boolean isAssignedStaff = maintenanceRequest.getAssignedStaff() != null
+                                && maintenanceRequest.getAssignedStaff().getId().equals(user.getId());
+                boolean isAdmin = user.getRole() == Role.ADMIN;
+
+                if (!isOwner && !isAssignedStaff && !isAdmin) {
+                        throw new RuntimeException("Access denied");
+                }
+
+                List<Attachment> attachments = attachmentRepository.findByMaintenanceRequest(maintenanceRequest);
+
+                return attachments.stream()
+                                .map(this::toDto)
+                                .collect(Collectors.toList());
+        }
+
+        public Attachment getAttachmentEntity(Long attachmentId) {
+                return attachmentRepository.findById(attachmentId)
+                                .orElseThrow(() -> new RuntimeException("Attachment not found"));
+        }
 
 }
