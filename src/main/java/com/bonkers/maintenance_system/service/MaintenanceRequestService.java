@@ -219,6 +219,19 @@ public class MaintenanceRequestService {
                                 .collect(Collectors.toList());
         }
 
+        public List<MaintenanceRequestResponseDTO> getMaintenanceRequestFromFacility(Long facilityId) {
+
+                Facility facility = facilityRepository.findById(facilityId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Facility not found"));
+
+                List<MaintenanceRequest> requests = maintenanceRequestRepository.findByFacility(facility);
+
+                return requests.stream()
+                                .map(this::toDto)
+                                .collect(Collectors.toList());
+
+        }
+
         // Retrieve status history for a maintenance request
         public List<StatusHistoryResponseDTO> getStatusHistory(Long maintenanceRequestId) {
                 // 1. Fetch the maintenance request, or fail if it doesn't exist

@@ -54,6 +54,12 @@ public class MaintenanceRequestController {
         return ResponseEntity.ok(maintenanceRequests);
     }
 
+    @GetMapping("/facility/{facilityId}")
+    public ResponseEntity<List<MaintenanceRequestResponseDTO>> getAllMaintenanceRequestsByFacility(@PathVariable Long facilityId) {
+        List<MaintenanceRequestResponseDTO> maintenaceRequests = maintenanceRequestService.getMaintenanceRequestFromFacility(facilityId);
+        return ResponseEntity.ok(maintenaceRequests);
+    }
+
     // Retrieve a specific maintenance request by ID
     @GetMapping("/{id}")
     public ResponseEntity<MaintenanceRequestResponseDTO> getMaintenanceRequest(@PathVariable Long id) {

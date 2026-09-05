@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import com.bonkers.maintenance_system.model.Facility;
 import com.bonkers.maintenance_system.model.MaintenanceRequest;
 import com.bonkers.maintenance_system.model.Status;
 import com.bonkers.maintenance_system.model.User;
@@ -18,4 +19,6 @@ public interface MaintenanceRequestRepository extends JpaRepository<MaintenanceR
     List<MaintenanceRequest> findByAssignedStaff(User staff);
 
     List<MaintenanceRequest> findByDueAtBeforeAndStatusNot(LocalDateTime time, Status status);
+
+    List<MaintenanceRequest> findByFacility(Facility facility);
 }
