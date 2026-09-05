@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 
 import com.bonkers.maintenance_system.dto.CommentResponseDTO;
 import com.bonkers.maintenance_system.dto.CreateCommentDTO;
+import com.bonkers.maintenance_system.exception.ResourceNotFoundException;
+import com.bonkers.maintenance_system.exception.UnathorizedExceptionHandler;
 import com.bonkers.maintenance_system.model.Comment;
 import com.bonkers.maintenance_system.model.MaintenanceRequest;
 import com.bonkers.maintenance_system.model.Role;
@@ -43,14 +45,14 @@ public class CommentService {
 
         public CommentResponseDTO createComment(Long maintenanceRequestId, CreateCommentDTO request) {
                 MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
-                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Maintenance Request not found"));
 
                 String principalName = SecurityContextHolder.getContext().getAuthentication() != null
                                 ? SecurityContextHolder.getContext().getAuthentication().getName()
                                 : null;
 
                 User user = userRepository.findByEmail(principalName)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
                 boolean isTenant = maintenanceRequest.getTenant().getId().equals(user.getId());
                 boolean isAssignedStaff = maintenanceRequest.getAssignedStaff() != null
@@ -58,7 +60,7 @@ public class CommentService {
                 boolean isAdmin = user.getRole() == Role.ADMIN;
 
                 if (!isTenant && !isAssignedStaff && !isAdmin) {
-                        throw new RuntimeException("Access denied");
+                        throw new UnathorizedExceptionHandler("Access denied");
                 }
 
                 Comment comment = new Comment();
@@ -74,7 +76,7 @@ public class CommentService {
 
         public List<CommentResponseDTO> getComment(Long maintenanceRequestId) {
                 MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
-                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Maintenance Request not found"));
 
                 // Get the email of whoever is currently logged in (from the JWT)
                 String principalName = SecurityContextHolder.getContext().getAuthentication() != null
@@ -83,7 +85,7 @@ public class CommentService {
 
                 // Look up the actual User record for that logged-in person
                 User user = userRepository.findByEmail(principalName)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
                 // Ownership check — is this user allowed to view this request's history?
                 boolean isOwner = maintenanceRequest.getTenant().getId().equals(user.getId());
@@ -94,7 +96,7 @@ public class CommentService {
                 // Block access if they're not the tenant, not assigned staff, and not an
                 // admin
                 if (!isOwner && !isAssignedStaff && !isAdmin) {
-                        throw new RuntimeException("Access denied");
+                        throw new UnathorizedExceptionHandler("Access denied");
                 }
 
                 List<Comment> comment = commentRepository.findByMaintenanceRequest(maintenanceRequest);

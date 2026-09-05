@@ -8,19 +8,17 @@ import org.springframework.stereotype.Service;
 import com.bonkers.maintenance_system.dto.CreateFacilityDTO;
 import com.bonkers.maintenance_system.dto.FacilityResponseDTO;
 import com.bonkers.maintenance_system.dto.UpdateFacilityDTO;
+import com.bonkers.maintenance_system.exception.ResourceNotFoundException;
 import com.bonkers.maintenance_system.model.Facility;
 import com.bonkers.maintenance_system.repository.FacilityRepository;
-import com.bonkers.maintenance_system.repository.UserRepository;
 
 @Service
 public class FacilityService {
     private final FacilityRepository facilityRepository;
-    private final UserRepository userRepository;
 
     // Constructor to initialize FacilityRepository
-    public FacilityService(FacilityRepository facilityRepository, UserRepository userRepository){
+    public FacilityService(FacilityRepository facilityRepository){
         this.facilityRepository = facilityRepository;
-        this.userRepository = userRepository;
     }
 
     // Convert Facility entity to DTO
@@ -50,7 +48,7 @@ public class FacilityService {
     // Retrieve a specific facility by ID
     public FacilityResponseDTO getFacility(Long id) {
         Facility facility = facilityRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Facility not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Facility not found"));
         
         return toDto(facility);
     }
@@ -66,7 +64,7 @@ public class FacilityService {
     // Update an existing facility
     public FacilityResponseDTO updateFacility(Long id, UpdateFacilityDTO request){
         Facility facility = facilityRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Facility not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Facility not found"));
         
         facility.setName(request.getName());
         facility.setLocation(request.getLocation());
@@ -79,7 +77,7 @@ public class FacilityService {
     // Delete a facility
     public void deleteFacility(Long id) {
         Facility facility = facilityRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Facility not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Facility not found"));
         
             facilityRepository.delete(facility);
     }

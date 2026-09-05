@@ -20,6 +20,8 @@ import com.bonkers.maintenance_system.dto.MaintenanceRequestResponseDTO;
 import com.bonkers.maintenance_system.dto.StatusHistoryResponseDTO;
 import com.bonkers.maintenance_system.dto.UpdateMaintenanceRequestDTO;
 import com.bonkers.maintenance_system.dto.UpdateStatusDTO;
+import com.bonkers.maintenance_system.exception.ResourceNotFoundException;
+import com.bonkers.maintenance_system.exception.UnathorizedExceptionHandler;
 import com.bonkers.maintenance_system.model.Attachment;
 import com.bonkers.maintenance_system.model.Facility;
 import com.bonkers.maintenance_system.model.MaintenanceRequest;
@@ -124,19 +126,19 @@ public class MaintenanceRequestService {
         // Create a new maintenance request
         public MaintenanceRequestResponseDTO createMaintenanceRequest(CreateMaintenanceRequestDTO request) {
                 Facility facility = facilityRepository.findById(request.getFacilityId())
-                                .orElseThrow(() -> new RuntimeException("Facility not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Facility not found"));
 
                 String principalName = SecurityContextHolder.getContext().getAuthentication() != null
                                 ? SecurityContextHolder.getContext().getAuthentication().getName()
                                 : null;
 
                 if (principalName == null || principalName.isBlank()) {
-                        throw new RuntimeException("No authenticated tenant found");
+                        throw new UnathorizedExceptionHandler("No authenticated tenant found");
                 }
 
                 User tenant = userRepository.findByEmail(principalName)
                                 .or(() -> userRepository.findByName(principalName))
-                                .orElseThrow(() -> new RuntimeException(
+                                .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Tenant not found for principal: " + principalName));
 
                 int hours = switch (request.getPriority()) {
@@ -164,7 +166,7 @@ public class MaintenanceRequestService {
         // Update an existing maintenance request
         public MaintenanceRequestResponseDTO updateMaintenanceRequest(Long id, UpdateMaintenanceRequestDTO request) {
                 MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
-                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Maintenance Request not found"));
 
                 maintenanceRequest.setTitle(request.getTitle());
                 maintenanceRequest.setDescription(request.getDescription());
@@ -177,7 +179,7 @@ public class MaintenanceRequestService {
         // Retrieve a specific maintenance request by ID
         public MaintenanceRequestResponseDTO getMaintenanceRequest(Long id) {
                 MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
-                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Maintenance Request not found"));
 
                 return toDto(maintenanceRequest);
         }
@@ -185,7 +187,7 @@ public class MaintenanceRequestService {
         // Delete a maintenance request
         public void deleteMaintenanceRequest(Long id) {
                 MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
-                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Maintenance Request not found"));
 
                 maintenanceRequestRepository.delete(maintenanceRequest);
         }
@@ -197,11 +199,11 @@ public class MaintenanceRequestService {
                                 : null;
 
                 if (principalName == null || principalName.isBlank()) {
-                        throw new RuntimeException("No authenticated tenant found");
+                        throw new UnathorizedExceptionHandler("No authenticated tenant found");
                 }
 
                 User user = userRepository.findByEmail(principalName)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
                 List<MaintenanceRequest> results;
 
@@ -221,7 +223,7 @@ public class MaintenanceRequestService {
         public List<StatusHistoryResponseDTO> getStatusHistory(Long maintenanceRequestId) {
                 // 1. Fetch the maintenance request, or fail if it doesn't exist
                 MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
-                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Maintenance Request not found"));
 
                 // 2. Get the email of whoever is currently logged in (from the JWT)
                 String principalName = SecurityContextHolder.getContext().getAuthentication() != null
@@ -230,7 +232,7 @@ public class MaintenanceRequestService {
 
                 // 3. Look up the actual User record for that logged-in person
                 User user = userRepository.findByEmail(principalName)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
                 // 4. Ownership check — is this user allowed to view this request's history?
                 boolean isOwner = maintenanceRequest.getTenant().getId().equals(user.getId());
@@ -241,7 +243,7 @@ public class MaintenanceRequestService {
                 // 5. Block access if they're not the tenant, not assigned staff, and not an
                 // admin
                 if (!isOwner && !isAssignedStaff && !isAdmin) {
-                        throw new RuntimeException("Access denied");
+                        throw new UnathorizedExceptionHandler("Access denied");
                 }
 
                 // 6. Fetch the full status history for this request, oldest first
@@ -272,7 +274,7 @@ public class MaintenanceRequestService {
         // Update the status of a maintenance request
         public MaintenanceRequestResponseDTO updateStatus(Long id, UpdateStatusDTO request) {
                 MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
-                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Maintenance Request not found"));
 
                 Status currentStatus = maintenanceRequest.getStatus();
                 Status nextStatus = request.getStatus();
@@ -284,11 +286,11 @@ public class MaintenanceRequestService {
                                 : null;
 
                 if (principalName == null || principalName.isBlank()) {
-                        throw new RuntimeException("No authenticated user found");
+                        throw new UnathorizedExceptionHandler("No authenticated user found");
                 }
 
                 User user = userRepository.findByEmail(principalName)
-                                .orElseThrow(() -> new RuntimeException(
+                                .orElseThrow(() -> new UnathorizedExceptionHandler(
                                                 "User not found for principal: " + principalName));
 
                 maintenanceRequest.setStatus(nextStatus);
@@ -307,10 +309,10 @@ public class MaintenanceRequestService {
         // Assign staff member to a maintenance request
         public MaintenanceRequestResponseDTO assignStaff(Long id, AssignStaffDTO request) {
                 MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
-                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Maintenance Request not found"));
 
                 User user = userRepository.findById(request.getStaffId())
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
                 if (!(user.getRole() == Role.STAFF)) {
                         throw new IllegalStateException("Invalid role: " + user.getRole());
@@ -332,7 +334,7 @@ public class MaintenanceRequestService {
 
         public AttachmentResponseDTO uploadAttachment(Long maintenanceRequestId, MultipartFile file) {
                 MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
-                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Maintenance Request not found"));
 
                 String uniqueFileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
                 Path targetPath = Paths.get(uploadDir, uniqueFileName);
@@ -362,14 +364,14 @@ public class MaintenanceRequestService {
 
         public List<AttachmentResponseDTO> getAttachments(Long maintenanceRequestId) {
                 MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(maintenanceRequestId)
-                                .orElseThrow(() -> new RuntimeException("Maintenance Request not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Maintenance Request not found"));
 
                 String principalName = SecurityContextHolder.getContext().getAuthentication() != null
                                 ? SecurityContextHolder.getContext().getAuthentication().getName()
                                 : null;
 
                 User user = userRepository.findByEmail(principalName)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
                 boolean isOwner = maintenanceRequest.getTenant().getId().equals(user.getId());
                 boolean isAssignedStaff = maintenanceRequest.getAssignedStaff() != null
@@ -389,7 +391,7 @@ public class MaintenanceRequestService {
 
         public Attachment getAttachmentEntity(Long attachmentId) {
                 return attachmentRepository.findById(attachmentId)
-                                .orElseThrow(() -> new RuntimeException("Attachment not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Attachment not found"));
         }
 
 }
