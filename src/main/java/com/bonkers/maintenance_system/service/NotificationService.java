@@ -8,6 +8,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import com.bonkers.maintenance_system.dto.NotificationResponseDTO;
+import com.bonkers.maintenance_system.exception.UnathorizedExceptionHandler;
 import com.bonkers.maintenance_system.model.MaintenanceRequest;
 import com.bonkers.maintenance_system.model.Notification;
 import com.bonkers.maintenance_system.model.User;
@@ -53,6 +54,10 @@ public class NotificationService {
         String principalName = SecurityContextHolder.getContext().getAuthentication() != null
                 ? SecurityContextHolder.getContext().getAuthentication().getName()
                 : null;
+
+        if(principalName == null || principalName.isBlank()) {
+            throw new UnathorizedExceptionHandler("No authenticated user found");
+        }
 
         User user = userRepository.findByEmail(principalName)
                 .orElseThrow(() -> new RuntimeException("User not found"));

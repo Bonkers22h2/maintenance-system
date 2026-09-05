@@ -51,6 +51,10 @@ public class CommentService {
                                 ? SecurityContextHolder.getContext().getAuthentication().getName()
                                 : null;
 
+                if(principalName == null || principalName.isBlank()) {
+                        throw new UnathorizedExceptionHandler("No authenticated user found");
+                }
+
                 User user = userRepository.findByEmail(principalName)
                                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
