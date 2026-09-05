@@ -3,21 +3,26 @@ package com.bonkers.maintenance_system.service;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import com.bonkers.maintenance_system.dto.CreateFacilityDTO;
 import com.bonkers.maintenance_system.dto.FacilityResponseDTO;
 import com.bonkers.maintenance_system.dto.UpdateFacilityDTO;
 import com.bonkers.maintenance_system.model.Facility;
+import com.bonkers.maintenance_system.model.User;
 import com.bonkers.maintenance_system.repository.FacilityRepository;
+import com.bonkers.maintenance_system.repository.UserRepository;
 
 @Service
 public class FacilityService {
     private final FacilityRepository facilityRepository;
+    private final UserRepository userRepository;
 
     // Constructor to initialize FacilityRepository
-    public FacilityService(FacilityRepository facilityRepository){
+    public FacilityService(FacilityRepository facilityRepository, UserRepository userRepository){
         this.facilityRepository = facilityRepository;
+        this.userRepository = userRepository;
     }
 
     // Convert Facility entity to DTO

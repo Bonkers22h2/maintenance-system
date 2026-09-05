@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,7 +20,6 @@ import com.bonkers.maintenance_system.dto.UpdateFacilityDTO;
 import com.bonkers.maintenance_system.service.FacilityService;
 
 import jakarta.validation.Valid;
-
 
 @RestController
 @RequestMapping("/api/facilities")
@@ -46,24 +46,28 @@ public class FacilityController {
     }
 
     // Update an existing facility
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<FacilityResponseDTO> updateFacility(@PathVariable Long id, @Valid @RequestBody UpdateFacilityDTO request){
+    public ResponseEntity<FacilityResponseDTO> updateFacility(@PathVariable Long id,
+            @Valid @RequestBody UpdateFacilityDTO request) {
         FacilityResponseDTO facility = facilityService.updateFacility(id, request);
         return ResponseEntity.ok(facility);
     }
 
     // Delete a facility
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<FacilityResponseDTO> deleteFacility(@PathVariable Long id){
+    public ResponseEntity<FacilityResponseDTO> deleteFacility(@PathVariable Long id) {
         facilityService.deleteFacility(id);
         return ResponseEntity.noContent().build();
     }
 
     // Create a new facility
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<FacilityResponseDTO> createFacility(@Valid @RequestBody CreateFacilityDTO request) {
         FacilityResponseDTO facility = facilityService.createFacility(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(facility);
     }
-    
+
 }
