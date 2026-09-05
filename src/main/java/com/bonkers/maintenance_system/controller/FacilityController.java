@@ -1,6 +1,5 @@
 package com.bonkers.maintenance_system.controller;
 
-import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +18,9 @@ import com.bonkers.maintenance_system.dto.FacilityResponseDTO;
 import com.bonkers.maintenance_system.dto.UpdateFacilityDTO;
 import com.bonkers.maintenance_system.service.FacilityService;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import jakarta.validation.Valid;
 
 @RestController
@@ -33,8 +35,8 @@ public class FacilityController {
 
     // Retrieve all facilities
     @GetMapping
-    public ResponseEntity<List<FacilityResponseDTO>> getAllFacility() {
-        List<FacilityResponseDTO> facilities = facilityService.getAllFacility();
+    public ResponseEntity<Page<FacilityResponseDTO>> getAllFacility(Pageable pageable) {
+        Page<FacilityResponseDTO> facilities = facilityService.getAllFacility(pageable);
         return ResponseEntity.ok(facilities);
     }
 
